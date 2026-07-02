@@ -55,6 +55,7 @@ images:
     octavia_housekeeping: docker.io/loci/octavia:master-ubuntu
     octavia_health_manager: docker.io/loci/octavia:master-ubuntu
     octavia_health_manager_init: docker.io/kolla/ubuntu-source-octavia-health-manager:rocky
+    octavia_driver_agent: docker.io/loci/octavia:master-ubuntu
     openvswitch_vswitchd: docker.io/kolla/centos-source-openvswitch-vswitchd:rocky
   pull_policy: "IfNotPresent"
   local_registry:
@@ -348,6 +349,11 @@ conf:
       thunder-lock: true
       worker-reload-mercy: 80
       wsgi-file: /var/lib/openstack/bin/octavia-wsgi
+  driver_agent:
+    # Unix socket directory shared between the API/worker containers and the
+    # driver-agent sidecar. Must match [driver_agent] agent_server_socket in
+    # octavia.conf (e.g. /var/run/octavia/status.sock).
+    socket_dir: /var/run/octavia
 
 secrets:
   identity:
@@ -536,9 +542,15 @@ pod:
       octavia_api:
         volumeMounts:
         volumes:
+      octavia_driver_agent:
+        volumeMounts:
+        volumes:
     octavia_worker:
       init_container: null
       octavia_worker:
+        volumeMounts:
+        volumes:
+      octavia_driver_agent:
         volumeMounts:
         volumes:
     octavia_housekeeping:
@@ -610,6 +622,13 @@ pod:
       limits:
         memory: "1024Mi"
         cpu: "2000m"
+    driver_agent:
+      requests:
+        memory: "64Mi"
+        cpu: "50m"
+      limits:
+        memory: "256Mi"
+        cpu: "500m"
     jobs:
       bootstrap:
         requests:
@@ -694,6 +713,9 @@ manifests:
   deployment_api: true
   deployment_worker: true
   deployment_housekeeping: true
+  # Set to true to run octavia-driver-agent as a sidecar in the API and worker
+  # pods (recommended). Set to false only if using the legacy hostPath workaround.
+  deployment_driver_agent_sidecar: true
   ingress_api: true
   job_bootstrap: true
   job_db_init: true

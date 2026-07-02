@@ -19,6 +19,7 @@ limitations under the License.
 
 {{- $mounts_octavia_worker := .Values.pod.mounts.octavia_worker.octavia_worker }}
 {{- $mounts_octavia_worker_init := .Values.pod.mounts.octavia_worker.init_container }}
+{{- $mounts_octavia_driver_agent := .Values.pod.mounts.octavia_worker.octavia_driver_agent }}
 
 {{- $serviceAccountName := "octavia-worker" }}
 {{ tuple $envAll "worker" $serviceAccountName | include "helm-toolkit.snippets.kubernetes_pod_rbac_serviceaccount" }}
@@ -88,6 +89,46 @@ spec:
               readOnly: true
             {{- end }}
 {{ if $mounts_octavia_worker.volumeMounts }}{{ toYaml $mounts_octavia_worker.volumeMounts | indent 12 }}{{ end }}
+            {{- if .Values.manifests.deployment_driver_agent_sidecar }}
+            - name: octavia-run
+              mountPath: {{ .Values.conf.driver_agent.socket_dir }}
+            {{- end }}
+        {{- if .Values.manifests.deployment_driver_agent_sidecar }}
+        - name: octavia-driver-agent
+{{ tuple $envAll "octavia_driver_agent" | include "helm-toolkit.snippets.image" | indent 10 }}
+{{ tuple $envAll $envAll.Values.pod.resources.driver_agent | include "helm-toolkit.snippets.kubernetes_resources" | indent 10 }}
+          securityContext:
+            runAsUser: {{ .Values.pod.user.octavia.uid }}
+          command:
+            - /tmp/octavia-driver-agent.sh
+            - start
+          lifecycle:
+            preStop:
+              exec:
+                command:
+                  - /tmp/octavia-driver-agent.sh
+                  - stop
+          volumeMounts:
+            - name: pod-etc-octavia
+              mountPath: /etc/octavia
+            - name: octavia-bin
+              mountPath: /tmp/octavia-driver-agent.sh
+              subPath: octavia-driver-agent.sh
+              readOnly: true
+            - name: octavia-etc
+              mountPath: /etc/octavia/octavia.conf
+              subPath: octavia.conf
+              readOnly: true
+            - name: octavia-run
+              mountPath: {{ .Values.conf.driver_agent.socket_dir }}
+            {{- if .Values.conf.octavia.DEFAULT.log_config_append }}
+            - name: octavia-etc
+              mountPath: {{ .Values.conf.octavia.DEFAULT.log_config_append }}
+              subPath: {{ base .Values.conf.octavia.DEFAULT.log_config_append }}
+              readOnly: true
+            {{- end }}
+{{ if $mounts_octavia_driver_agent.volumeMounts }}{{ toYaml $mounts_octavia_driver_agent.volumeMounts | indent 12 }}{{ end }}
+        {{- end }}
       volumes:
         - name: pod-etc-octavia
           emptyDir: {}
@@ -100,4 +141,8 @@ spec:
             secretName: octavia-etc
             defaultMode: 0444
 {{ if $mounts_octavia_worker.volumes }}{{ toYaml $mounts_octavia_worker.volumes | indent 8 }}{{ end }}
+        {{- if .Values.manifests.deployment_driver_agent_sidecar }}
+        - name: octavia-run
+          emptyDir: {}
+        {{- end }}
 {{- end }}
