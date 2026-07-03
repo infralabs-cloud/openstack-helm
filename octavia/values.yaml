@@ -335,6 +335,7 @@ conf:
   octavia_api_uwsgi:
     uwsgi:
       processes: 4
+      http-socket: "0.0.0.0:9876"
       add-header: "Connection: close"
       buffer-size: 65535
       die-on-term: true
@@ -348,7 +349,9 @@ conf:
       route-user-agent: '^kube-probe.* donotlog:'
       thunder-lock: true
       worker-reload-mercy: 80
-      wsgi-file: /var/lib/openstack/bin/octavia-wsgi
+      module: "octavia.wsgi.api:application"
+      stats: 0.0.0.0:1717
+      stats-http: true
   driver_agent:
     # Unix socket directory shared between the API/worker containers and the
     # driver-agent sidecar. Must match [driver_agent] agent_server_socket in
