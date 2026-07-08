@@ -20,6 +20,9 @@ set -ex
 COMMAND="${@:-start}"
 
 function start () {
+  # Ensure the socket directory exists before the agent binds its unix sockets
+  # (shared with the API/worker container via the octavia-run emptyDir).
+  mkdir -p {{ .Values.conf.driver_agent.socket_dir }}
   exec octavia-driver-agent \
         --config-file /etc/octavia/octavia.conf
 }

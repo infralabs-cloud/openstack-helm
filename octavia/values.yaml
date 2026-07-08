@@ -243,6 +243,12 @@ dependencies:
           service: local_image_registry
 
 conf:
+  driver_agent:
+    # Unix socket directory shared between the API/worker main containers and
+    # the octavia-driver-agent sidecar via the octavia-run emptyDir. Must match
+    # the [driver_agent] *_socket_path values in octavia.conf (default
+    # /var/run/octavia/{status,stats,get}.sock).
+    socket_dir: /var/run/octavia
   octavia:
     DEFAULT:
       log_config_append: /etc/octavia/logging.conf
@@ -670,6 +676,10 @@ pod:
       octavia_api:
         volumeMounts:
         volumes:
+      # Sidecar mount extension point (driver-agent inside the API pod)
+      octavia_driver_agent:
+        volumeMounts:
+        volumes:
     octavia_driver_agent:
       init_container: null
       octavia_driver_agent:
@@ -678,6 +688,10 @@ pod:
     octavia_worker:
       init_container: null
       octavia_worker:
+        volumeMounts:
+        volumes:
+      # Sidecar mount extension point (driver-agent inside the worker pod)
+      octavia_driver_agent:
         volumeMounts:
         volumes:
     octavia_housekeeping:
@@ -839,7 +853,15 @@ manifests:
   daemonset_health_manager: true
   daemonset_worker: true
   deployment_api: true
+  # Standalone driver-agent Deployment. Leave the template available but disable
+  # it in the deployment overrides in favour of the sidecar (below): as a
+  # separate pod its /var/run/octavia socket cannot be shared with the API/worker
+  # provider drivers, so OVN provider calls fail.
   deployment_driver_agent: true
+  # Run octavia-driver-agent as a sidecar in the API and worker pods, sharing the
+  # socket dir via an emptyDir. Set deployment_driver_agent: false in overrides
+  # when this is true so the driver-agent runs only as the sidecar.
+  deployment_driver_agent_sidecar: true
   deployment_housekeeping: true
   ingress_api: true
   job_bootstrap: true
